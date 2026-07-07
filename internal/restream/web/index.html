@@ -110,6 +110,12 @@
         transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
       }
 
+      .top-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
       .github-link:hover {
         border-color: rgba(96, 165, 250, 0.45);
         background: rgba(30, 41, 59, 0.84);
@@ -210,6 +216,63 @@
         background: rgba(2, 6, 23, 0.82);
         box-shadow: 0 20px 50px rgba(0, 0, 0, 0.36);
         backdrop-filter: blur(16px);
+      }
+
+      .cookie-panel {
+        position: absolute;
+        right: 18px;
+        bottom: 18px;
+        left: 18px;
+        z-index: 3;
+        display: grid;
+        gap: 10px;
+        max-width: 720px;
+        padding: 14px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 14px;
+        background: rgba(2, 6, 23, 0.92);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.42);
+        backdrop-filter: blur(16px);
+      }
+
+      .cookie-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .cookie-title {
+        color: #dbeafe;
+        font-size: 0.9rem;
+        font-weight: 780;
+      }
+
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        border-radius: 12px;
+        padding: 12px;
+        color: var(--text);
+        background: rgba(2, 6, 23, 0.78);
+        outline: none;
+        font: 0.86rem/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        transition:
+          border-color 160ms ease,
+          box-shadow 160ms ease,
+          background 160ms ease;
+      }
+
+      textarea:focus {
+        border-color: rgba(96, 165, 250, 0.8);
+        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.16);
+      }
+
+      .cookie-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
       }
 
       body.has-room .setup-panel {
@@ -613,6 +676,15 @@
           padding: 10px;
         }
 
+        .cookie-panel {
+          position: fixed;
+          inset: auto 10px 10px;
+          max-width: none;
+          max-height: calc(100vh - 20px);
+          padding: 10px;
+          overflow: auto;
+        }
+
         .setup-form {
           grid-template-columns: 1fr;
         }
@@ -627,9 +699,16 @@
         }
 
         .room-controls .button,
+        .cookie-actions .button,
         .quality-wrap,
         .quality-wrap select {
           width: 100%;
+        }
+
+        .top-actions,
+        .cookie-actions {
+          align-items: stretch;
+          flex-direction: column;
         }
 
         .status {
@@ -648,12 +727,15 @@
         <div class="brand">
           <h1>live2gether</h1>
         </div>
-        <a class="github-link" href="https://github.com/giulianoo0/live2gether" target="_blank" rel="noreferrer">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.2.8-.6v-2.1c-3.3.7-4-1.4-4-1.4-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.9 1.2 1.9 1.2 1.1 1.9 2.9 1.3 3.6 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.6.1-3.2 0 0 1-.3 3.3 1.2a11.3 11.3 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.2c0 .4.2.7.8.6A12 12 0 0 0 12 .5Z" />
-          </svg>
-          <span>github.com/giulianoo0/live2gether</span>
-        </a>
+        <div class="top-actions">
+          <button type="button" class="button secondary" id="login-toggle">youtube login</button>
+          <a class="github-link" href="https://github.com/giulianoo0/live2gether" target="_blank" rel="noreferrer">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.2.8-.6v-2.1c-3.3.7-4-1.4-4-1.4-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.9 1.2 1.9 1.2 1.1 1.9 2.9 1.3 3.6 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.6.1-3.2 0 0 1-.3 3.3 1.2a11.3 11.3 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.2c0 .4.2.7.8.6A12 12 0 0 0 12 .5Z" />
+            </svg>
+            <span>github.com/giulianoo0/live2gether</span>
+          </a>
+        </div>
       </header>
 
       <div class="layout">
@@ -666,6 +748,17 @@
                 <button class="button" type="submit">start</button>
               </form>
             </div>
+            <section class="cookie-panel t-panel-slide" id="cookie-panel" data-open="false" aria-label="youtube login">
+              <div class="cookie-row">
+                <div class="cookie-title" id="cookie-title">youtube login</div>
+                <button type="button" class="button secondary" id="cookie-close">close</button>
+              </div>
+              <textarea id="cookies-text" maxlength="131072" spellcheck="false" autocomplete="off" placeholder="paste cookies.txt"></textarea>
+              <div class="cookie-actions">
+                <button type="button" class="button secondary" id="cookie-clear">clear</button>
+                <button type="button" class="button" id="cookie-save">save login</button>
+              </div>
+            </section>
           </div>
 
           <div class="roombar">
@@ -737,6 +830,12 @@
       const setupPanel = document.querySelector("#setup-panel");
       const roomControls = document.querySelector("#room-controls");
       const copyButton = document.querySelector("#copy-share");
+      const loginToggle = document.querySelector("#login-toggle");
+      const cookiePanel = document.querySelector("#cookie-panel");
+      const cookieClose = document.querySelector("#cookie-close");
+      const cookieClear = document.querySelector("#cookie-clear");
+      const cookieSave = document.querySelector("#cookie-save");
+      const cookiesText = document.querySelector("#cookies-text");
       const qualityWrap = document.querySelector("#quality-wrap");
       const qualitySelect = document.querySelector("#quality-select");
       const liveSyncButton = document.querySelector("#live-sync");
@@ -754,6 +853,7 @@
       let currentSessionId = "";
       let currentHostToken = "";
       let currentShareURL = "";
+      let browserSessionId = localStorage.getItem("live2gether:browser-session") || "";
       let lastStatus = statusEl.textContent;
       const player = window.videojs("media", {
         fill: true,
@@ -787,6 +887,44 @@
       };
 
       const hostTokenKey = (id) => `live2gether:host:${id}`;
+
+      const ensureBrowserSession = async () => {
+        const response = await fetch("/api/browser-sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: browserSessionId }),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.error || "could not create browser session");
+        }
+        browserSessionId = payload.id;
+        localStorage.setItem("live2gether:browser-session", browserSessionId);
+        loginToggle.textContent = payload.hasYouTubeCookies ? "youtube saved" : "youtube login";
+        return payload;
+      };
+
+      const openCookiePanel = () => {
+        setupPanel.dataset.open = "false";
+        cookiePanel.classList.remove("hidden");
+        cookiePanel.dataset.open = "true";
+        cookiesText.focus();
+      };
+
+      const closeCookiePanel = () => {
+        cookiePanel.dataset.open = "false";
+        if (!body.classList.contains("has-room")) {
+          setupPanel.dataset.open = "true";
+        }
+      };
+
+      const authLooksRequired = (snapshot) => {
+        if (snapshot.status !== "failed") {
+          return false;
+        }
+        const text = `${snapshot.message || ""}`.toLowerCase();
+        return text.includes("cookies") || text.includes("login") || text.includes("sign in") || text.includes("country") || text.includes("not made this video available");
+      };
 
       const showShare = (watchPath) => {
         currentShareURL = new URL(watchPath, window.location.origin).toString();
@@ -931,6 +1069,9 @@
         socket.addEventListener("message", (event) => {
           const snapshot = JSON.parse(event.data);
           setStatus(snapshot.message || snapshot.status);
+          if (authLooksRequired(snapshot)) {
+            openCookiePanel();
+          }
           showShare(snapshot.watchPath);
           applyQualityOptions(snapshot);
           renderPlayers(snapshot);
@@ -964,13 +1105,13 @@
         connect(snapshot.id);
       };
 
-      form.addEventListener("submit", async (event) => {
-        event.preventDefault();
+      const startRoom = async () => {
+        await ensureBrowserSession();
         setStatus("creating room");
         const response = await fetch("/api/sessions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: urlInput.value }),
+          body: JSON.stringify({ url: urlInput.value, browserSessionId }),
         });
         const payload = await response.json();
         if (!response.ok) {
@@ -986,6 +1127,11 @@
         renderPlayers(payload);
         renderChat(payload);
         connect(payload.id);
+      };
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        startRoom().catch((error) => setStatus(error.message));
       });
 
       copyButton.addEventListener("click", async () => {
@@ -1018,6 +1164,58 @@
 
       liveSyncButton.addEventListener("click", syncLive);
 
+      loginToggle.addEventListener("click", () => {
+        openCookiePanel();
+      });
+
+      cookieClose.addEventListener("click", closeCookiePanel);
+
+      cookieClear.addEventListener("click", () => {
+        cookiesText.value = "";
+        if (!browserSessionId) {
+          cookiesText.focus();
+          return;
+        }
+        fetch(`/api/browser-sessions/${browserSessionId}/youtube-cookies`, { method: "DELETE" })
+          .then((response) => response.json().then((payload) => ({ response, payload })))
+          .then(({ response, payload }) => {
+            if (!response.ok) {
+              setStatus(payload.error || "could not clear youtube login");
+              return;
+            }
+            loginToggle.textContent = "youtube login";
+            setStatus("youtube login cleared");
+          })
+          .catch(() => setStatus("could not clear youtube login"));
+        cookiesText.focus();
+      });
+
+      cookieSave.addEventListener("click", async () => {
+        try {
+          await ensureBrowserSession();
+          setStatus("saving youtube login");
+          const response = await fetch(`/api/browser-sessions/${browserSessionId}/youtube-cookies`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ cookiesText: cookiesText.value }),
+          });
+          const payload = await response.json();
+          if (!response.ok) {
+            setStatus(payload.error || "could not save youtube login");
+            return;
+          }
+          loginToggle.textContent = "youtube saved";
+          cookiesText.value = "";
+          closeCookiePanel();
+          setStatus("youtube login saved");
+          if (urlInput.value) {
+            await startRoom();
+          }
+        } catch (error) {
+          setStatus(error.message || "could not save youtube login");
+        }
+      });
+
       chatForm.addEventListener("submit", (event) => {
         event.preventDefault();
         if (!socket || socket.readyState !== WebSocket.OPEN) {
@@ -1031,6 +1229,8 @@
         socket.send(JSON.stringify({ type: "chat", text }));
         chatInput.value = "";
       });
+
+      ensureBrowserSession().catch((error) => setStatus(error.message));
 
       if (body.dataset.sessionId) {
         loadSession(body.dataset.sessionId);

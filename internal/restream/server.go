@@ -5,6 +5,7 @@ import (
 	"embed"
 	"html/template"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -40,7 +41,7 @@ func NewServer(manager *Manager) (*Server, error) {
 	return &Server{
 		manager: manager,
 		upgrader: websocket.Upgrader{
-			CheckOrigin: func(*http.Request) bool { return true },
+			CheckOrigin: sameOriginWebSocket,
 		},
 		index: index,
 	}, nil
@@ -56,6 +57,10 @@ func (s *Server) Router() *gin.Engine {
 	router.GET("/watch/:id", func(c *gin.Context) {
 		s.renderIndex(c.Param("id"))(c)
 	})
+	router.POST("/api/browser-sessions", s.ensureBrowserSession)
+	router.GET("/api/browser-sessions/:id", s.getBrowserSession)
+	router.POST("/api/browser-sessions/:id/youtube-cookies", s.saveYouTubeCookies)
+	router.DELETE("/api/browser-sessions/:id/youtube-cookies", s.deleteYouTubeCookies)
 	router.POST("/api/sessions", s.createSession)
 	router.GET("/api/sessions/:id", s.getSession)
 	router.POST("/api/sessions/:id/quality", s.setQuality)
@@ -75,14 +80,15 @@ func (s *Server) renderIndex(sessionID string) gin.HandlerFunc {
 
 func (s *Server) createSession(c *gin.Context) {
 	var request struct {
-		URL string `json:"url"`
+		URL              string `json:"url"`
+		BrowserSessionID string `json:"browserSessionId"`
 	}
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "JSON body must include url"})
 		return
 	}
 
-	session, created, err := s.manager.GetOrCreate(c.Request.Context(), request.URL)
+	session, created, err := s.manager.GetOrCreate(c.Request.Context(), request.URL, CreateSessionOptions{BrowserSessionID: request.BrowserSessionID})
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -93,6 +99,84 @@ func (s *Server) createSession(c *gin.Context) {
 		response.HostToken = session.HostToken
 	}
 	c.JSON(http.StatusOK, response)
+}
+
+func (s *Server) ensureBrowserSession(c *gin.Context) {
+	store := s.manager.CredentialStore()
+	if store == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "credential store is not configured"})
+		return
+	}
+
+	var request struct {
+		ID string `json:"id"`
+	}
+	_ = c.ShouldBindJSON(&request)
+	info, err := store.EnsureBrowserSession(c.Request.Context(), request.ID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, info)
+}
+
+func (s *Server) getBrowserSession(c *gin.Context) {
+	store := s.manager.CredentialStore()
+	if store == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "credential store is not configured"})
+		return
+	}
+	info, err := store.EnsureBrowserSession(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, info)
+}
+
+func (s *Server) saveYouTubeCookies(c *gin.Context) {
+	store := s.manager.CredentialStore()
+	if store == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "credential store is not configured"})
+		return
+	}
+
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxCookieBytes+4096)
+	var request struct {
+		CookiesText string `json:"cookiesText"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "JSON body must include cookiesText"})
+		return
+	}
+	if err := store.SaveYouTubeCookies(c.Request.Context(), c.Param("id"), request.CookiesText); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	info, err := store.EnsureBrowserSession(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, info)
+}
+
+func (s *Server) deleteYouTubeCookies(c *gin.Context) {
+	store := s.manager.CredentialStore()
+	if store == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "credential store is not configured"})
+		return
+	}
+	if err := store.DeleteYouTubeCookies(c.Request.Context(), c.Param("id")); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	info, err := store.EnsureBrowserSession(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, info)
 }
 
 func (s *Server) getSession(c *gin.Context) {
@@ -201,4 +285,16 @@ func (s *Server) serveHLS(c *gin.Context) {
 	}
 
 	c.File(path)
+}
+
+func sameOriginWebSocket(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	parsed, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(parsed.Host, r.Host)
 }

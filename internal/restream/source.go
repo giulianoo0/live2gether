@@ -28,6 +28,9 @@ func NormalizeSource(raw string) (string, error) {
 	if isBlockedHost(parsed.Hostname()) {
 		return "", errors.New("local and private network URLs are not allowed")
 	}
+	if !isAllowedYouTubeHost(parsed.Hostname()) {
+		return "", errors.New("only youtube.com and youtu.be URLs are allowed")
+	}
 
 	parsed.Fragment = ""
 	return parsed.String(), nil
@@ -50,4 +53,9 @@ func isBlockedHost(host string) bool {
 	}
 
 	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified()
+}
+
+func isAllowedYouTubeHost(host string) bool {
+	name := strings.TrimSuffix(strings.ToLower(host), ".")
+	return name == "youtu.be" || name == "youtube.com" || name == "www.youtube.com" || strings.HasSuffix(name, ".youtube.com")
 }

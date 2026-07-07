@@ -44,6 +44,26 @@ func TestCreateSessionReturnsHostTokenOnlyWhenCreated(t *testing.T) {
 	}
 }
 
+func TestCreateSessionAcceptsBrowserSessionID(t *testing.T) {
+	store := NewMemoryCredentialStore(testEncryptionKey(t))
+	info, err := store.EnsureBrowserSession(t.Context(), "")
+	if err != nil {
+		t.Fatalf("EnsureBrowserSession returned error: %v", err)
+	}
+	manager := NewManager(t.TempDir(), &fakeRunner{}, store)
+	server, err := NewServer(manager)
+	if err != nil {
+		t.Fatalf("NewServer returned error: %v", err)
+	}
+
+	body := []byte(`{"url":"https://www.youtube.com/watch?v=i6-j6_5aXL8","browserSessionId":"` + info.ID + `"}`)
+	recorder := httptest.NewRecorder()
+	server.Router().ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/api/sessions", bytes.NewReader(body)))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("create status = %d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
 func TestSetQualityRejectsViewer(t *testing.T) {
 	manager := NewManager(t.TempDir(), &fakeRunner{})
 	session, _, err := manager.GetOrCreate(t.Context(), "https://www.youtube.com/watch?v=i6-j6_5aXL8")

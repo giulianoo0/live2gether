@@ -27,6 +27,13 @@ func TestNormalizeSourceRejectsLocalhostURL(t *testing.T) {
 	}
 }
 
+func TestNormalizeSourceRejectsNonYouTubeURL(t *testing.T) {
+	_, err := NormalizeSource("https://example.com/watch?v=i6-j6_5aXL8")
+	if err == nil {
+		t.Fatal("NormalizeSource accepted a non-youtube URL")
+	}
+}
+
 func TestStableSessionIDIsDeterministicURLSafeAndCompact(t *testing.T) {
 	first := StableSessionID("https://www.youtube.com/watch?v=i6-j6_5aXL8")
 	second := StableSessionID("https://www.youtube.com/watch?v=i6-j6_5aXL8")

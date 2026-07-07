@@ -30,28 +30,35 @@ func NewProcessRunner(transcode bool) *ProcessRunner {
 	}
 }
 
-func (r *ProcessRunner) Start(ctx context.Context, session *Session, qualityID string) {
-	go r.run(ctx, session, qualityID)
+func (r *ProcessRunner) Start(ctx context.Context, session *Session, options RunOptions) {
+	go r.run(ctx, session, options)
 }
 
-func (r *ProcessRunner) run(ctx context.Context, session *Session, qualityID string) {
+func (r *ProcessRunner) run(ctx context.Context, session *Session, options RunOptions) {
 	if err := r.requireBinaries(); err != nil {
 		session.SetStatus(StatusFailed, err.Error())
 		return
 	}
+	cookieFile, cleanup, err := writeTempCookieFile(options.CookiesText)
+	if err != nil {
+		session.SetStatus(StatusFailed, err.Error())
+		return
+	}
+	defer cleanup()
 
 	session.SetStatus(StatusResolving, "Resolving media URL with yt-dlp")
-	qualities, err := r.listQualities(ctx, session.URL)
+	qualities, err := r.listQualities(ctx, session.URL, cookieFile)
 	if err != nil {
 		session.SetStatus(StatusFailed, err.Error())
 		return
 	}
 	session.SetQualityOptions(qualities)
+	qualityID := options.QualityID
 	if !qualityExists(qualities, qualityID) {
 		qualityID = "best"
 	}
 
-	mediaURL, err := r.resolveMediaURL(ctx, session.URL, qualityID)
+	mediaURL, err := r.resolveMediaURL(ctx, session.URL, qualityID, cookieFile)
 	if err != nil {
 		session.SetStatus(StatusFailed, err.Error())
 		return
@@ -145,7 +152,7 @@ func (r *ProcessRunner) requireBinaries() error {
 	return nil
 }
 
-func (r *ProcessRunner) resolveMediaURL(ctx context.Context, sourceURL, qualityID string) (string, error) {
+func (r *ProcessRunner) resolveMediaURL(ctx context.Context, sourceURL, qualityID, cookieFile string) (string, error) {
 	resolveCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 
@@ -154,13 +161,15 @@ func (r *ProcessRunner) resolveMediaURL(ctx context.Context, sourceURL, qualityI
 		formatSelector = qualityID
 	}
 
-	cmd := exec.CommandContext(resolveCtx, r.YTDLPPath,
+	args := []string{
 		"--no-playlist",
 		"--no-warnings",
 		"-f", formatSelector,
 		"--get-url",
 		sourceURL,
-	)
+	}
+	args = withCookies(args, cookieFile)
+	cmd := exec.CommandContext(resolveCtx, r.YTDLPPath, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", errors.New("yt-dlp could not resolve the stream: " + compactOutput(output))
@@ -176,16 +185,18 @@ func (r *ProcessRunner) resolveMediaURL(ctx context.Context, sourceURL, qualityI
 	return "", errors.New("yt-dlp did not return a playable media URL")
 }
 
-func (r *ProcessRunner) listQualities(ctx context.Context, sourceURL string) ([]QualityOption, error) {
+func (r *ProcessRunner) listQualities(ctx context.Context, sourceURL, cookieFile string) ([]QualityOption, error) {
 	resolveCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(resolveCtx, r.YTDLPPath,
+	args := []string{
 		"--no-playlist",
 		"--no-warnings",
 		"--dump-single-json",
 		sourceURL,
-	)
+	}
+	args = withCookies(args, cookieFile)
+	cmd := exec.CommandContext(resolveCtx, r.YTDLPPath, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, errors.New("yt-dlp could not inspect stream formats: " + compactOutput(output))
@@ -244,6 +255,44 @@ func (r *ProcessRunner) listQualities(ctx context.Context, sourceURL string) ([]
 	})
 
 	return options, nil
+}
+
+func withCookies(args []string, cookieFile string) []string {
+	if cookieFile == "" {
+		return args
+	}
+	with := append([]string{"--cookies", cookieFile}, args...)
+	return with
+}
+
+func writeTempCookieFile(cookiesText string) (string, func(), error) {
+	cookiesText = strings.TrimSpace(cookiesText)
+	if cookiesText == "" {
+		return "", func() {}, nil
+	}
+	file, err := os.CreateTemp("", "live2gether-youtube-cookies-*.txt")
+	if err != nil {
+		return "", nil, errors.New("could not create temporary cookies file: " + err.Error())
+	}
+	path := file.Name()
+	cleanup := func() {
+		_ = os.Remove(path)
+	}
+	if err := file.Chmod(0o600); err != nil {
+		_ = file.Close()
+		cleanup()
+		return "", nil, errors.New("could not secure temporary cookies file: " + err.Error())
+	}
+	if _, err := file.WriteString(cookiesText + "\n"); err != nil {
+		_ = file.Close()
+		cleanup()
+		return "", nil, errors.New("could not write temporary cookies file: " + err.Error())
+	}
+	if err := file.Close(); err != nil {
+		cleanup()
+		return "", nil, errors.New("could not close temporary cookies file: " + err.Error())
+	}
+	return path, cleanup, nil
 }
 
 func (r *ProcessRunner) ffmpegArgs(mediaURL, hlsDir string) []string {

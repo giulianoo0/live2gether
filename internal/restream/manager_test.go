@@ -8,11 +8,13 @@ import (
 type fakeRunner struct {
 	starts    int
 	qualities []string
+	options   []RunOptions
 }
 
-func (f *fakeRunner) Start(_ context.Context, session *Session, qualityID string) {
+func (f *fakeRunner) Start(_ context.Context, session *Session, options RunOptions) {
 	f.starts++
-	f.qualities = append(f.qualities, qualityID)
+	f.qualities = append(f.qualities, options.QualityID)
+	f.options = append(f.options, options)
 	session.SetStatus(StatusReady, "Stream ready")
 }
 
@@ -98,5 +100,54 @@ func TestManagerSetQualityRequiresHostToken(t *testing.T) {
 	}
 	if runner.qualities[1] != "301" {
 		t.Fatalf("restarted quality = %q, want 301", runner.qualities[1])
+	}
+}
+
+func TestManagerPassesStoredYouTubeCookiesToRunner(t *testing.T) {
+	store := NewMemoryCredentialStore(testEncryptionKey(t))
+	info, err := store.EnsureBrowserSession(context.Background(), "")
+	if err != nil {
+		t.Fatalf("EnsureBrowserSession returned error: %v", err)
+	}
+	cookies := ".youtube.com\tTRUE\t/\tTRUE\t1893456000\tSID\tsecret"
+	if err := store.SaveYouTubeCookies(context.Background(), info.ID, cookies); err != nil {
+		t.Fatalf("SaveYouTubeCookies returned error: %v", err)
+	}
+
+	runner := &fakeRunner{}
+	manager := NewManager(t.TempDir(), runner, store)
+	if _, _, err := manager.GetOrCreate(context.Background(), "https://www.youtube.com/watch?v=i6-j6_5aXL8", CreateSessionOptions{BrowserSessionID: info.ID}); err != nil {
+		t.Fatalf("GetOrCreate returned error: %v", err)
+	}
+
+	if runner.starts != 1 {
+		t.Fatalf("runner starts = %d, want 1", runner.starts)
+	}
+	if runner.options[0].CookiesText != cookies {
+		t.Fatalf("runner cookies = %q, want saved cookies", runner.options[0].CookiesText)
+	}
+}
+
+func TestManagerRestartsFailedSessionOnCreate(t *testing.T) {
+	runner := &fakeRunner{}
+	manager := NewManager(t.TempDir(), runner)
+	session, _, err := manager.GetOrCreate(context.Background(), "https://www.youtube.com/watch?v=i6-j6_5aXL8")
+	if err != nil {
+		t.Fatalf("GetOrCreate returned error: %v", err)
+	}
+	session.SetStatus(StatusFailed, "needs cookies")
+
+	again, created, err := manager.GetOrCreate(context.Background(), "https://www.youtube.com/watch?v=i6-j6_5aXL8")
+	if err != nil {
+		t.Fatalf("second GetOrCreate returned error: %v", err)
+	}
+	if created {
+		t.Fatal("failed session recreate reported created")
+	}
+	if again != session {
+		t.Fatal("failed session recreate returned a different session")
+	}
+	if runner.starts != 2 {
+		t.Fatalf("runner starts = %d, want 2", runner.starts)
 	}
 }

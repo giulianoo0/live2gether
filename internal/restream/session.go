@@ -54,10 +54,11 @@ type ChatMessage struct {
 }
 
 type Session struct {
-	ID        string
-	URL       string
-	HLSDir    string
-	HostToken string
+	ID               string
+	URL              string
+	HLSDir           string
+	HostToken        string
+	BrowserSessionID string
 
 	mu                sync.Mutex
 	status            Status
@@ -136,6 +137,12 @@ func (s *Session) SelectedQualityID() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.selectedQualityID
+}
+
+func (s *Session) Status() Status {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.status
 }
 
 func (s *Session) ValidateHostToken(token string) bool {
