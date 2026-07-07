@@ -6,3 +6,5 @@ skills-lock.json
 *.tgz
 thingy
 live2gether
+.vercel
+.env*
