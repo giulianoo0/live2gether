@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>live2gether</title>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@videojs/html/cdn/live-video.js"></script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@videojs/html/cdn/media/hls-video.js"></script>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #020617;
+        --panel: #0f172a;
+        --panel-2: #111827;
+        --line: #1e293b;
+        --text: #e5e7eb;
+        --muted: #94a3b8;
+        --blue: #3b82f6;
+        --blue-2: #2563eb;
+        --blue-soft: rgba(59, 130, 246, 0.14);
+        --green: #22c55e;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      .layout > *,
+      .side > *,
+      .setup > *,
+      .share-row > *,
+      .host-row > *,
+      .chat-form > * {
+        min-width: 0;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at 20% 0%, rgba(37, 99, 235, 0.28), transparent 34rem),
+          radial-gradient(circle at 90% 15%, rgba(14, 165, 233, 0.12), transparent 28rem),
+          linear-gradient(180deg, #020617 0%, #0b1120 100%);
+      }
+
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+
+      button {
+        border: 0;
+        cursor: pointer;
+      }
+
+      .shell {
+        width: min(1440px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 22px 0;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .mark {
+        width: 36px;
+        height: 36px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, var(--blue), #60a5fa);
+        box-shadow: 0 16px 40px rgba(37, 99, 235, 0.35);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 1.08rem;
+        letter-spacing: 0;
+      }
+
+      .status {
+        min-width: 12rem;
+        color: var(--muted);
+        text-align: right;
+        font-size: 0.9rem;
+        transition: color 180ms ease, transform 180ms ease;
+      }
+
+      .status[data-active="true"] {
+        color: #bfdbfe;
+        transform: translateY(-1px);
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 360px;
+        gap: 16px;
+        align-items: start;
+      }
+
+      .surface {
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 24px;
+        background: rgba(15, 23, 42, 0.78);
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.32);
+        backdrop-filter: blur(18px);
+      }
+
+      .player-card {
+        padding: 12px;
+        animation: enter 420ms ease both;
+      }
+
+      .stage {
+        aspect-ratio: 16 / 9;
+        width: 100%;
+        min-height: 260px;
+        overflow: hidden;
+        border-radius: 18px;
+        background: #000;
+        border: 1px solid rgba(148, 163, 184, 0.14);
+      }
+
+      live-video-player,
+      live-video-skin,
+      hls-video {
+        width: 100%;
+        height: 100%;
+      }
+
+      .setup {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .share-row,
+      .host-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+        margin-top: 10px;
+        animation: enter 240ms ease both;
+      }
+
+      input,
+      select {
+        min-width: 0;
+        min-height: 44px;
+        width: 100%;
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        border-radius: 14px;
+        padding: 0 13px;
+        color: var(--text);
+        background: rgba(2, 6, 23, 0.72);
+        outline: none;
+        transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+      }
+
+      input:focus,
+      select:focus {
+        border-color: rgba(96, 165, 250, 0.8);
+        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.16);
+      }
+
+      select:disabled {
+        color: #64748b;
+      }
+
+      .button {
+        min-height: 44px;
+        border-radius: 14px;
+        padding: 0 16px;
+        color: #eff6ff;
+        background: linear-gradient(135deg, var(--blue), var(--blue-2));
+        font-weight: 760;
+        white-space: nowrap;
+        transition: transform 160ms ease, filter 160ms ease, box-shadow 160ms ease;
+        box-shadow: 0 14px 30px rgba(37, 99, 235, 0.28);
+      }
+
+      .button:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.04);
+      }
+
+      .button.secondary {
+        background: rgba(30, 41, 59, 0.9);
+        box-shadow: none;
+      }
+
+      .side {
+        display: grid;
+        gap: 12px;
+        animation: enter 520ms ease both;
+      }
+
+      .card {
+        padding: 14px;
+      }
+
+      .card-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+        color: #cbd5e1;
+        font-size: 0.82rem;
+        font-weight: 800;
+        text-transform: lowercase;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .stat {
+        border-radius: 18px;
+        padding: 12px;
+        background: rgba(2, 6, 23, 0.52);
+        border: 1px solid rgba(148, 163, 184, 0.12);
+      }
+
+      .stat-value {
+        display: block;
+        color: #dbeafe;
+        font-size: 1.24rem;
+        font-weight: 820;
+        animation: pop 240ms ease both;
+      }
+
+      .stat-label {
+        color: var(--muted);
+        font-size: 0.78rem;
+      }
+
+      .players {
+        display: grid;
+        gap: 8px;
+        max-height: 156px;
+        overflow: auto;
+      }
+
+      .player {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-height: 34px;
+        color: #cbd5e1;
+        font-size: 0.9rem;
+      }
+
+      .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 999px;
+        background: var(--green);
+        box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.12);
+      }
+
+      .chat-log {
+        display: grid;
+        align-content: start;
+        gap: 9px;
+        height: 310px;
+        overflow: auto;
+        padding-right: 4px;
+      }
+
+      .message {
+        padding: 10px 11px;
+        border-radius: 16px;
+        background: rgba(2, 6, 23, 0.55);
+        border: 1px solid rgba(148, 163, 184, 0.12);
+        animation: messageIn 220ms ease both;
+      }
+
+      .message strong {
+        display: block;
+        margin-bottom: 3px;
+        color: #93c5fd;
+        font-size: 0.78rem;
+      }
+
+      .message span {
+        color: #e2e8f0;
+        font-size: 0.9rem;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+      }
+
+      .chat-form {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .empty {
+        color: var(--muted);
+        font-size: 0.9rem;
+        line-height: 1.4;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      @keyframes enter {
+        from {
+          opacity: 0;
+          transform: translateY(10px) scale(0.99);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @keyframes messageIn {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes pop {
+        from {
+          opacity: 0.4;
+          transform: translateY(4px) scale(0.92);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 1ms !important;
+          transition-duration: 1ms !important;
+          scroll-behavior: auto !important;
+        }
+      }
+
+      @media (max-width: 1040px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .side {
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        }
+      }
+
+      @media (max-width: 700px) {
+        .shell {
+          width: min(100vw - 20px, 1440px);
+          padding: 12px 0;
+        }
+
+        .topbar,
+        .setup,
+        .share-row,
+        .host-row,
+        .side,
+        .chat-form {
+          grid-template-columns: 1fr;
+          display: grid;
+        }
+
+        .status {
+          text-align: left;
+        }
+
+        .stage {
+          min-height: 220px;
+        }
+      }
+    </style>
+  </head>
+  <body data-session-id="{{ .SessionID }}">
+    <main class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="mark" aria-hidden="true"></div>
+          <h1>live2gether</h1>
+        </div>
+        <div class="status" id="status">paste a stream url</div>
+      </header>
+
+      <div class="layout">
+        <section class="player-card surface">
+          <div class="stage" aria-label="video player">
+            <live-video-player>
+              <live-video-skin>
+                <hls-video id="media" slot="media" playsinline></hls-video>
+              </live-video-skin>
+            </live-video-player>
+          </div>
+
+          <form class="setup" id="stream-form">
+            <input id="stream-url" name="url" type="url" placeholder="https://www.youtube.com/watch?v=i6-j6_5aXL8" autocomplete="url" required />
+            <button class="button" type="submit">start room</button>
+          </form>
+
+          <div class="share-row hidden" id="share-row">
+            <input id="share-url" readonly aria-label="share url" />
+            <button type="button" class="button secondary" id="copy-share">copy link</button>
+          </div>
+
+          <div class="host-row hidden" id="host-row">
+            <select id="quality-select" aria-label="stream quality" disabled></select>
+            <button type="button" class="button secondary" id="live-sync">live sync</button>
+          </div>
+        </section>
+
+        <aside class="side">
+          <section class="surface card">
+            <div class="card-title">
+              <span>room</span>
+              <span id="host-label">viewer</span>
+            </div>
+            <div class="stats">
+              <div class="stat">
+                <span class="stat-value" id="viewer-count">0</span>
+                <span class="stat-label">watching</span>
+              </div>
+              <div class="stat">
+                <span class="stat-value" id="message-count">0</span>
+                <span class="stat-label">messages</span>
+              </div>
+              <div class="stat">
+                <span class="stat-value" id="quality-current">auto</span>
+                <span class="stat-label">quality</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="surface card">
+            <div class="card-title">
+              <span>players</span>
+              <span id="players-count">0 online</span>
+            </div>
+            <div class="players" id="players">
+              <div class="empty">no one has joined yet.</div>
+            </div>
+          </section>
+
+          <section class="surface card">
+            <div class="card-title">
+              <span>chat</span>
+              <span>room only</span>
+            </div>
+            <div class="chat-log" id="chat-log">
+              <div class="empty">messages will show up here.</div>
+            </div>
+            <form class="chat-form" id="chat-form">
+              <input id="chat-input" maxlength="500" autocomplete="off" placeholder="say something" />
+              <button class="button secondary" type="submit">send</button>
+            </form>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <script type="module">
+      const body = document.body;
+      const form = document.querySelector("#stream-form");
+      const urlInput = document.querySelector("#stream-url");
+      const statusEl = document.querySelector("#status");
+      const shareRow = document.querySelector("#share-row");
+      const shareInput = document.querySelector("#share-url");
+      const copyButton = document.querySelector("#copy-share");
+      const hostRow = document.querySelector("#host-row");
+      const qualitySelect = document.querySelector("#quality-select");
+      const liveSyncButton = document.querySelector("#live-sync");
+      const media = document.querySelector("#media");
+      const viewerCount = document.querySelector("#viewer-count");
+      const playersCount = document.querySelector("#players-count");
+      const playersEl = document.querySelector("#players");
+      const messageCount = document.querySelector("#message-count");
+      const qualityCurrent = document.querySelector("#quality-current");
+      const hostLabel = document.querySelector("#host-label");
+      const chatLog = document.querySelector("#chat-log");
+      const chatForm = document.querySelector("#chat-form");
+      const chatInput = document.querySelector("#chat-input");
+      let socket;
+      let currentPlaylist = "";
+      let currentSessionId = "";
+      let currentHostToken = "";
+
+      const setStatus = (message) => {
+        statusEl.textContent = message;
+        statusEl.dataset.active = "true";
+        window.clearTimeout(setStatus.timer);
+        setStatus.timer = window.setTimeout(() => {
+          statusEl.dataset.active = "false";
+        }, 420);
+      };
+
+      const hostTokenKey = (id) => `live2gether:host:${id}`;
+
+      const showShare = (watchPath) => {
+        const shareURL = new URL(watchPath, window.location.origin).toString();
+        shareInput.value = shareURL;
+        shareRow.classList.remove("hidden");
+        hostRow.classList.remove("hidden");
+      };
+
+      const qualityLabel = (snapshot) => {
+        const selected = (snapshot.qualities || []).find((quality) => quality.id === snapshot.selectedQualityId);
+        return selected?.label || "auto";
+      };
+
+      const applyQualityOptions = (snapshot) => {
+        const hostToken = localStorage.getItem(hostTokenKey(snapshot.id)) || "";
+        currentHostToken = hostToken;
+        qualitySelect.disabled = hostToken === "";
+        hostLabel.textContent = hostToken ? "host" : "viewer";
+        qualitySelect.replaceChildren();
+        for (const quality of snapshot.qualities || []) {
+          const option = document.createElement("option");
+          option.value = quality.id;
+          option.textContent = quality.label;
+          qualitySelect.append(option);
+        }
+        qualitySelect.value = snapshot.selectedQualityId || "best";
+        qualityCurrent.textContent = qualityLabel(snapshot).toLowerCase();
+      };
+
+      const renderPlayers = (snapshot) => {
+        const viewers = snapshot.viewers || [];
+        viewerCount.textContent = String(snapshot.viewerCount || 0);
+        playersCount.textContent = `${snapshot.viewerCount || 0} online`;
+        playersEl.replaceChildren();
+        if (viewers.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "empty";
+          empty.textContent = "no one has joined yet.";
+          playersEl.append(empty);
+          return;
+        }
+        for (const viewer of viewers) {
+          const row = document.createElement("div");
+          row.className = "player";
+          const dot = document.createElement("span");
+          dot.className = "dot";
+          const name = document.createElement("span");
+          name.textContent = viewer;
+          row.append(dot, name);
+          playersEl.append(row);
+        }
+      };
+
+      const renderChat = (snapshot) => {
+        const messages = snapshot.chat || [];
+        messageCount.textContent = String(messages.length);
+        chatLog.replaceChildren();
+        if (messages.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "empty";
+          empty.textContent = "messages will show up here.";
+          chatLog.append(empty);
+          return;
+        }
+        for (const message of messages) {
+          const item = document.createElement("div");
+          item.className = "message";
+          const author = document.createElement("strong");
+          author.textContent = message.author;
+          const text = document.createElement("span");
+          text.textContent = message.text;
+          item.append(author, text);
+          chatLog.append(item);
+        }
+        chatLog.scrollTop = chatLog.scrollHeight;
+      };
+
+      const syncLive = () => {
+        const video = media.shadowRoot?.querySelector("video") || media.querySelector("video");
+        if (!video) {
+          if (currentPlaylist) {
+            media.setAttribute("src", currentPlaylist);
+          }
+          return;
+        }
+        const ranges = video.seekable;
+        if (ranges.length > 0) {
+          video.currentTime = Math.max(ranges.end(ranges.length - 1) - 1.5, 0);
+        }
+        video.play().catch(() => {});
+      };
+
+      const connect = (id) => {
+        if (socket) {
+          socket.close();
+        }
+        currentSessionId = id;
+        const wsURL = new URL(`/ws/${id}`, window.location.href);
+        wsURL.protocol = wsURL.protocol === "https:" ? "wss:" : "ws:";
+        socket = new WebSocket(wsURL);
+        socket.addEventListener("message", (event) => {
+          const snapshot = JSON.parse(event.data);
+          setStatus(snapshot.message || snapshot.status);
+          showShare(snapshot.watchPath);
+          applyQualityOptions(snapshot);
+          renderPlayers(snapshot);
+          renderChat(snapshot);
+          const playlist = `${snapshot.playlistPath}?v=${snapshot.playlistVersion || 0}`;
+          if (snapshot.status === "ready" && playlist !== currentPlaylist) {
+            currentPlaylist = playlist;
+            media.setAttribute("src", playlist);
+            syncLive();
+          }
+        });
+        socket.addEventListener("close", () => {
+          if (currentPlaylist === "") {
+            setStatus("disconnected");
+          }
+        });
+      };
+
+      const loadSession = async (id) => {
+        const response = await fetch(`/api/sessions/${id}`);
+        if (!response.ok) {
+          setStatus("session not found on this server");
+          return;
+        }
+        const snapshot = await response.json();
+        urlInput.value = snapshot.url;
+        showShare(snapshot.watchPath);
+        applyQualityOptions(snapshot);
+        renderPlayers(snapshot);
+        renderChat(snapshot);
+        connect(snapshot.id);
+      };
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        setStatus("creating room");
+        const response = await fetch("/api/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: urlInput.value }),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          setStatus(payload.error || "could not start stream");
+          return;
+        }
+        if (payload.hostToken) {
+          localStorage.setItem(hostTokenKey(payload.id), payload.hostToken);
+        }
+        history.replaceState(null, "", payload.watchPath);
+        showShare(payload.watchPath);
+        applyQualityOptions(payload);
+        renderPlayers(payload);
+        renderChat(payload);
+        connect(payload.id);
+      });
+
+      copyButton.addEventListener("click", async () => {
+        await navigator.clipboard.writeText(shareInput.value);
+        copyButton.textContent = "copied";
+        setTimeout(() => {
+          copyButton.textContent = "copy link";
+        }, 1200);
+      });
+
+      qualitySelect.addEventListener("change", async () => {
+        if (!currentSessionId || !currentHostToken) {
+          setStatus("only the host can change quality");
+          return;
+        }
+        setStatus("changing quality");
+        const response = await fetch(`/api/sessions/${currentSessionId}/quality`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            qualityId: qualitySelect.value,
+            hostToken: currentHostToken,
+          }),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          setStatus(payload.error || "could not change quality");
+        }
+      });
+
+      liveSyncButton.addEventListener("click", syncLive);
+
+      chatForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (!socket || socket.readyState !== WebSocket.OPEN) {
+          setStatus("chat is not connected");
+          return;
+        }
+        const text = chatInput.value.trim();
+        if (!text) {
+          return;
+        }
+        socket.send(JSON.stringify({ type: "chat", text }));
+        chatInput.value = "";
+      });
+
+      if (body.dataset.sessionId) {
+        loadSession(body.dataset.sessionId);
+      }
+    </script>
+  </body>
+</html>

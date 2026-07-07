@@ -1,0 +1,22 @@
+FROM golang:1.26-bookworm AS build
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -o /thingy .
+
+FROM python:3.13-slim-bookworm
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates ffmpeg \
+    && pip install --no-cache-dir yt-dlp \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV DATA_DIR=/tmp/thingy-restream
+ENV GIN_MODE=release
+
+COPY --from=build /thingy /thingy
+
+CMD ["/thingy"]
