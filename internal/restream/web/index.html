@@ -4,14 +4,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>live2gether</title>
-    <script type="module" src="https://cdn.jsdelivr.net/npm/@videojs/html/cdn/live-video.js"></script>
-    <script type="module" src="https://cdn.jsdelivr.net/npm/@videojs/html/cdn/media/hls-video.js"></script>
+    <link href="https://vjs.zencdn.net/8.23.4/video-js.css" rel="stylesheet" />
+    <script src="https://vjs.zencdn.net/8.23.4/video.min.js"></script>
     <style>
       :root {
         color-scheme: dark;
-        --bg: #020617;
-        --panel: #0f172a;
-        --panel-2: #111827;
+        --bg: #000;
+        --panel: rgba(15, 23, 42, 0.62);
+        --panel-2: rgba(2, 6, 23, 0.72);
         --line: #1e293b;
         --text: #e5e7eb;
         --muted: #94a3b8;
@@ -19,6 +19,22 @@
         --blue-2: #2563eb;
         --blue-soft: rgba(59, 130, 246, 0.14);
         --green: #22c55e;
+        --panel-open-dur: 400ms;
+        --panel-close-dur: 350ms;
+        --panel-translate-y: 18px;
+        --panel-blur: 2px;
+        --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
+        --digit-dur: 500ms;
+        --digit-distance: 8px;
+        --digit-stagger: 70ms;
+        --digit-blur: 2px;
+        --digit-ease: cubic-bezier(0.34, 1.45, 0.64, 1);
+        --digit-dir-x: 0;
+        --digit-dir-y: 1;
+        --text-swap-dur: 150ms;
+        --text-swap-translate-y: 4px;
+        --text-swap-blur: 2px;
+        --text-swap-ease: ease-in-out;
         font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         background: var(--bg);
         color: var(--text);
@@ -30,9 +46,8 @@
 
       .layout > *,
       .side > *,
-      .setup > *,
-      .share-row > *,
-      .host-row > *,
+      .setup-form > *,
+      .room-controls > *,
       .chat-form > * {
         min-width: 0;
       }
@@ -40,10 +55,7 @@
       body {
         margin: 0;
         min-height: 100vh;
-        background:
-          radial-gradient(circle at 20% 0%, rgba(37, 99, 235, 0.28), transparent 34rem),
-          radial-gradient(circle at 90% 15%, rgba(14, 165, 233, 0.12), transparent 28rem),
-          linear-gradient(180deg, #020617 0%, #0b1120 100%);
+        background: #000;
       }
 
       button,
@@ -58,9 +70,9 @@
       }
 
       .shell {
-        width: min(1440px, calc(100vw - 32px));
+        width: min(1680px, calc(100vw - 28px));
         margin: 0 auto;
-        padding: 22px 0;
+        padding: 14px 0;
       }
 
       .topbar {
@@ -68,93 +80,192 @@
         align-items: center;
         justify-content: space-between;
         gap: 16px;
-        margin-bottom: 18px;
+        margin-bottom: 12px;
       }
 
       .brand {
         display: flex;
         align-items: center;
-        gap: 10px;
-      }
-
-      .mark {
-        width: 36px;
-        height: 36px;
-        border-radius: 14px;
-        background: linear-gradient(135deg, var(--blue), #60a5fa);
-        box-shadow: 0 16px 40px rgba(37, 99, 235, 0.35);
+        gap: 12px;
       }
 
       h1 {
         margin: 0;
-        font-size: 1.08rem;
+        font-size: 0.96rem;
         letter-spacing: 0;
       }
 
-      .status {
-        min-width: 12rem;
-        color: var(--muted);
-        text-align: right;
-        font-size: 0.9rem;
-        transition: color 180ms ease, transform 180ms ease;
+      .github-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 36px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 999px;
+        padding: 0 12px;
+        color: #cbd5e1;
+        background: rgba(15, 23, 42, 0.64);
+        text-decoration: none;
+        font-size: 0.84rem;
+        transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
       }
 
-      .status[data-active="true"] {
-        color: #bfdbfe;
+      .github-link:hover {
+        border-color: rgba(96, 165, 250, 0.45);
+        background: rgba(30, 41, 59, 0.84);
         transform: translateY(-1px);
+      }
+
+      .github-link svg {
+        width: 17px;
+        height: 17px;
+        fill: currentColor;
+        flex: 0 0 auto;
+      }
+
+      .status {
+        min-height: 1.35em;
+        color: var(--muted);
+        font-size: 0.9rem;
+        transition: color var(--text-swap-dur) var(--text-swap-ease);
+      }
+
+      #status[data-active="true"] {
+        color: #bfdbfe;
       }
 
       .layout {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 360px;
-        gap: 16px;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 12px;
         align-items: start;
+      }
+
+      body:not(.has-room) .layout {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      body:not(.has-room) .side {
+        display: none;
       }
 
       .surface {
         border: 1px solid rgba(148, 163, 184, 0.18);
-        border-radius: 24px;
-        background: rgba(15, 23, 42, 0.78);
-        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.32);
+        border-radius: 16px;
+        background: var(--panel);
+        box-shadow: 0 22px 60px rgba(0, 0, 0, 0.42);
         backdrop-filter: blur(18px);
       }
 
       .player-card {
-        padding: 12px;
+        padding: 8px;
         animation: enter 420ms ease both;
       }
 
       .stage {
         aspect-ratio: 16 / 9;
         width: 100%;
-        min-height: 260px;
+        min-height: min(68vh, 700px);
+        position: relative;
         overflow: hidden;
-        border-radius: 18px;
+        border-radius: 10px;
         background: #000;
         border: 1px solid rgba(148, 163, 184, 0.14);
       }
 
-      live-video-player,
-      live-video-skin,
-      hls-video {
+      .video-js {
         width: 100%;
         height: 100%;
+        background: #000;
+        font-family: inherit;
       }
 
-      .setup {
+      .video-js .vjs-control-bar {
+        background: linear-gradient(180deg, rgba(2, 6, 23, 0.1), rgba(2, 6, 23, 0.86));
+      }
+
+      .video-js .vjs-big-play-button {
+        width: 64px;
+        height: 64px;
+        margin-top: -32px;
+        margin-left: -32px;
+        border-radius: 999px;
+        border-color: rgba(255, 255, 255, 0.28);
+        background: rgba(15, 23, 42, 0.82);
+        transition: transform 180ms ease, background 180ms ease;
+      }
+
+      .video-js:hover .vjs-big-play-button {
+        background: rgba(37, 99, 235, 0.88);
+        transform: scale(1.04);
+      }
+
+      .setup-panel {
+        position: absolute;
+        inset: auto 18px 18px;
+        z-index: 2;
+        padding: 14px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 14px;
+        background: rgba(2, 6, 23, 0.82);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.36);
+        backdrop-filter: blur(16px);
+      }
+
+      body.has-room .setup-panel {
+        transform: translateY(var(--panel-translate-y));
+        opacity: 0;
+        filter: blur(var(--panel-blur));
+        pointer-events: none;
+        transition:
+          transform var(--panel-close-dur) var(--panel-ease),
+          opacity var(--panel-close-dur) var(--panel-ease),
+          filter var(--panel-close-dur) var(--panel-ease);
+      }
+
+      .setup-form {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
         gap: 10px;
-        margin-top: 12px;
       }
 
-      .share-row,
-      .host-row {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
+      .roombar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
         gap: 10px;
-        margin-top: 10px;
-        animation: enter 240ms ease both;
+        padding: 10px 2px 0;
+      }
+
+      .room-controls {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .t-panel-slide {
+        transform: translateY(var(--panel-translate-y));
+        opacity: 0;
+        filter: blur(var(--panel-blur));
+        pointer-events: none;
+        transition:
+          transform var(--panel-close-dur) var(--panel-ease),
+          opacity var(--panel-close-dur) var(--panel-ease),
+          filter var(--panel-close-dur) var(--panel-ease);
+        will-change: transform, opacity, filter;
+      }
+
+      .t-panel-slide[data-open="true"] {
+        transform: translateY(0);
+        opacity: 1;
+        filter: blur(0);
+        pointer-events: auto;
+        transition:
+          transform var(--panel-open-dur) var(--panel-ease),
+          opacity var(--panel-open-dur) var(--panel-ease),
+          filter var(--panel-open-dur) var(--panel-ease);
       }
 
       input,
@@ -171,6 +282,12 @@
         transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
       }
 
+      .setup-form input {
+        min-height: 48px;
+        border-radius: 12px;
+        font-size: 0.98rem;
+      }
+
       input:focus,
       select:focus {
         border-color: rgba(96, 165, 250, 0.8);
@@ -181,9 +298,26 @@
         color: #64748b;
       }
 
+      .quality-wrap {
+        display: none;
+      }
+
+      .quality-wrap[data-host="true"] {
+        display: block;
+      }
+
+      .quality-wrap select {
+        width: auto;
+        max-width: 180px;
+        min-height: 40px;
+        border-radius: 999px;
+        padding: 0 34px 0 13px;
+        font-size: 0.86rem;
+      }
+
       .button {
         min-height: 44px;
-        border-radius: 14px;
+        border-radius: 12px;
         padding: 0 16px;
         color: #eff6ff;
         background: linear-gradient(135deg, var(--blue), var(--blue-2));
@@ -201,6 +335,13 @@
       .button.secondary {
         background: rgba(30, 41, 59, 0.9);
         box-shadow: none;
+      }
+
+      .room-controls .button {
+        min-height: 40px;
+        border-radius: 999px;
+        padding: 0 13px;
+        font-size: 0.86rem;
       }
 
       .side {
@@ -231,18 +372,52 @@
       }
 
       .stat {
-        border-radius: 18px;
+        border-radius: 12px;
         padding: 12px;
         background: rgba(2, 6, 23, 0.52);
         border: 1px solid rgba(148, 163, 184, 0.12);
       }
 
       .stat-value {
-        display: block;
+        display: inline-flex;
+        align-items: baseline;
         color: #dbeafe;
         font-size: 1.24rem;
         font-weight: 820;
-        animation: pop 240ms ease both;
+        min-height: 1.45em;
+      }
+
+      @keyframes t-digit-pop-in {
+        0% {
+          transform: translate(
+            calc(var(--digit-distance) * var(--digit-dir-x)),
+            calc(var(--digit-distance) * var(--digit-dir-y))
+          );
+          opacity: 0;
+          filter: blur(var(--digit-blur));
+        }
+        100% {
+          transform: translate(0, 0);
+          opacity: 1;
+          filter: blur(0);
+        }
+      }
+
+      .t-digit {
+        display: inline-block;
+        will-change: transform, opacity, filter;
+      }
+
+      .t-digit-group.is-animating .t-digit {
+        animation: t-digit-pop-in var(--digit-dur) var(--digit-ease) both;
+      }
+
+      .t-digit-group.is-animating .t-digit[data-stagger="1"] {
+        animation-delay: var(--digit-stagger);
+      }
+
+      .t-digit-group.is-animating .t-digit[data-stagger="2"] {
+        animation-delay: calc(var(--digit-stagger) * 2);
       }
 
       .stat-label {
@@ -285,7 +460,7 @@
 
       .message {
         padding: 10px 11px;
-        border-radius: 16px;
+        border-radius: 12px;
         background: rgba(2, 6, 23, 0.55);
         border: 1px solid rgba(148, 163, 184, 0.12);
         animation: messageIn 220ms ease both;
@@ -320,6 +495,31 @@
 
       .hidden {
         display: none !important;
+      }
+
+      .t-text-swap {
+        display: inline-block;
+        transform: translateY(0);
+        filter: blur(0);
+        opacity: 1;
+        transition:
+          transform var(--text-swap-dur) var(--text-swap-ease),
+          filter var(--text-swap-dur) var(--text-swap-ease),
+          opacity var(--text-swap-dur) var(--text-swap-ease);
+        will-change: transform, filter, opacity;
+      }
+
+      .t-text-swap.is-exit {
+        transform: translateY(calc(var(--text-swap-translate-y) * -1));
+        filter: blur(var(--text-swap-blur));
+        opacity: 0;
+      }
+
+      .t-text-swap.is-enter-start {
+        transform: translateY(var(--text-swap-translate-y));
+        filter: blur(var(--text-swap-blur));
+        opacity: 0;
+        transition: none;
       }
 
       @keyframes enter {
@@ -363,6 +563,13 @@
           transition-duration: 1ms !important;
           scroll-behavior: auto !important;
         }
+
+        .t-panel-slide,
+        .t-text-swap,
+        .t-digit-group .t-digit {
+          animation: none !important;
+          transition: none !important;
+        }
       }
 
       @media (max-width: 1040px) {
@@ -382,13 +589,47 @@
         }
 
         .topbar,
-        .setup,
-        .share-row,
-        .host-row,
         .side,
         .chat-form {
           grid-template-columns: 1fr;
           display: grid;
+        }
+
+        .topbar {
+          align-items: start;
+        }
+
+        .github-link span {
+          font-size: 0;
+        }
+
+        .github-link span::after {
+          content: "github";
+          font-size: 0.84rem;
+        }
+
+        .setup-panel {
+          inset: auto 10px 10px;
+          padding: 10px;
+        }
+
+        .setup-form {
+          grid-template-columns: 1fr;
+        }
+
+        .roombar {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .room-controls {
+          justify-content: stretch;
+        }
+
+        .room-controls .button,
+        .quality-wrap,
+        .quality-wrap select {
+          width: 100%;
         }
 
         .status {
@@ -405,35 +646,37 @@
     <main class="shell">
       <header class="topbar">
         <div class="brand">
-          <div class="mark" aria-hidden="true"></div>
           <h1>live2gether</h1>
         </div>
-        <div class="status" id="status">paste a stream url</div>
+        <a class="github-link" href="https://github.com/giulianoo0/live2gether" target="_blank" rel="noreferrer">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.2.8-.6v-2.1c-3.3.7-4-1.4-4-1.4-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.9 1.2 1.9 1.2 1.1 1.9 2.9 1.3 3.6 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.6.1-3.2 0 0 1-.3 3.3 1.2a11.3 11.3 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.2c0 .4.2.7.8.6A12 12 0 0 0 12 .5Z" />
+          </svg>
+          <span>github.com/giulianoo0/live2gether</span>
+        </a>
       </header>
 
       <div class="layout">
         <section class="player-card surface">
           <div class="stage" aria-label="video player">
-            <live-video-player>
-              <live-video-skin>
-                <hls-video id="media" slot="media" playsinline></hls-video>
-              </live-video-skin>
-            </live-video-player>
+            <video id="media" class="video-js vjs-default-skin vjs-big-play-centered" controls playsinline preload="auto"></video>
+            <div class="setup-panel t-panel-slide" id="setup-panel" data-open="true">
+              <form class="setup-form" id="stream-form">
+                <input id="stream-url" name="url" type="url" placeholder="paste a youtube live url" autocomplete="url" required />
+                <button class="button" type="submit">start</button>
+              </form>
+            </div>
           </div>
 
-          <form class="setup" id="stream-form">
-            <input id="stream-url" name="url" type="url" placeholder="https://www.youtube.com/watch?v=i6-j6_5aXL8" autocomplete="url" required />
-            <button class="button" type="submit">start room</button>
-          </form>
-
-          <div class="share-row hidden" id="share-row">
-            <input id="share-url" readonly aria-label="share url" />
-            <button type="button" class="button secondary" id="copy-share">copy link</button>
-          </div>
-
-          <div class="host-row hidden" id="host-row">
-            <select id="quality-select" aria-label="stream quality" disabled></select>
-            <button type="button" class="button secondary" id="live-sync">live sync</button>
+          <div class="roombar">
+            <div class="status"><span class="t-text-swap" id="status">paste a stream url</span></div>
+            <div class="room-controls t-panel-slide" id="room-controls" data-open="false">
+              <button type="button" class="button secondary" id="copy-share">copy link</button>
+              <button type="button" class="button secondary" id="live-sync">live</button>
+              <label class="quality-wrap" id="quality-wrap" aria-label="stream quality">
+                <select id="quality-select" aria-label="stream quality" disabled></select>
+              </label>
+            </div>
           </div>
         </section>
 
@@ -445,11 +688,11 @@
             </div>
             <div class="stats">
               <div class="stat">
-                <span class="stat-value" id="viewer-count">0</span>
+                <span class="stat-value t-digit-group" id="viewer-count">0</span>
                 <span class="stat-label">watching</span>
               </div>
               <div class="stat">
-                <span class="stat-value" id="message-count">0</span>
+                <span class="stat-value t-digit-group" id="message-count">0</span>
                 <span class="stat-label">messages</span>
               </div>
               <div class="stat">
@@ -491,13 +734,12 @@
       const form = document.querySelector("#stream-form");
       const urlInput = document.querySelector("#stream-url");
       const statusEl = document.querySelector("#status");
-      const shareRow = document.querySelector("#share-row");
-      const shareInput = document.querySelector("#share-url");
+      const setupPanel = document.querySelector("#setup-panel");
+      const roomControls = document.querySelector("#room-controls");
       const copyButton = document.querySelector("#copy-share");
-      const hostRow = document.querySelector("#host-row");
+      const qualityWrap = document.querySelector("#quality-wrap");
       const qualitySelect = document.querySelector("#quality-select");
       const liveSyncButton = document.querySelector("#live-sync");
-      const media = document.querySelector("#media");
       const viewerCount = document.querySelector("#viewer-count");
       const playersCount = document.querySelector("#players-count");
       const playersEl = document.querySelector("#players");
@@ -511,23 +753,51 @@
       let currentPlaylist = "";
       let currentSessionId = "";
       let currentHostToken = "";
+      let currentShareURL = "";
+      let lastStatus = statusEl.textContent;
+      const player = window.videojs("media", {
+        fill: true,
+        liveui: true,
+        html5: {
+          vhs: {
+            overrideNative: true,
+          },
+        },
+      });
 
       const setStatus = (message) => {
-        statusEl.textContent = message;
+        if (!message || message === lastStatus) {
+          return;
+        }
+        lastStatus = message;
         statusEl.dataset.active = "true";
+        const duration = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--text-swap-dur")) || 150;
+        statusEl.classList.add("is-exit");
+        window.setTimeout(() => {
+          statusEl.textContent = message;
+          statusEl.classList.remove("is-exit");
+          statusEl.classList.add("is-enter-start");
+          void statusEl.offsetHeight;
+          statusEl.classList.remove("is-enter-start");
+        }, duration);
         window.clearTimeout(setStatus.timer);
         setStatus.timer = window.setTimeout(() => {
           statusEl.dataset.active = "false";
-        }, 420);
+        }, duration + 420);
       };
 
       const hostTokenKey = (id) => `live2gether:host:${id}`;
 
       const showShare = (watchPath) => {
-        const shareURL = new URL(watchPath, window.location.origin).toString();
-        shareInput.value = shareURL;
-        shareRow.classList.remove("hidden");
-        hostRow.classList.remove("hidden");
+        currentShareURL = new URL(watchPath, window.location.origin).toString();
+        body.classList.add("has-room");
+        setupPanel.classList.remove("hidden");
+        setupPanel.dataset.open = "false";
+        roomControls.dataset.open = "true";
+        window.clearTimeout(showShare.timer);
+        showShare.timer = window.setTimeout(() => {
+          setupPanel.classList.add("hidden");
+        }, 380);
       };
 
       const qualityLabel = (snapshot) => {
@@ -539,6 +809,7 @@
         const hostToken = localStorage.getItem(hostTokenKey(snapshot.id)) || "";
         currentHostToken = hostToken;
         qualitySelect.disabled = hostToken === "";
+        qualityWrap.dataset.host = hostToken ? "true" : "false";
         hostLabel.textContent = hostToken ? "host" : "viewer";
         qualitySelect.replaceChildren();
         for (const quality of snapshot.qualities || []) {
@@ -553,7 +824,7 @@
 
       const renderPlayers = (snapshot) => {
         const viewers = snapshot.viewers || [];
-        viewerCount.textContent = String(snapshot.viewerCount || 0);
+        setDigits(viewerCount, String(snapshot.viewerCount || 0));
         playersCount.textContent = `${snapshot.viewerCount || 0} online`;
         playersEl.replaceChildren();
         if (viewers.length === 0) {
@@ -577,7 +848,7 @@
 
       const renderChat = (snapshot) => {
         const messages = snapshot.chat || [];
-        messageCount.textContent = String(messages.length);
+        setDigits(messageCount, String(messages.length));
         chatLog.replaceChildren();
         if (messages.length === 0) {
           const empty = document.createElement("div");
@@ -600,10 +871,18 @@
       };
 
       const syncLive = () => {
-        const video = media.shadowRoot?.querySelector("video") || media.querySelector("video");
+        if (player.liveTracker && player.liveTracker.isLive()) {
+          player.liveTracker.seekToLiveEdge();
+          const playAttempt = player.play();
+          if (playAttempt && typeof playAttempt.catch === "function") {
+            playAttempt.catch(() => {});
+          }
+          return;
+        }
+        const video = player.tech(true)?.el();
         if (!video) {
           if (currentPlaylist) {
-            media.setAttribute("src", currentPlaylist);
+            player.src({ src: currentPlaylist, type: "application/x-mpegURL" });
           }
           return;
         }
@@ -611,7 +890,34 @@
         if (ranges.length > 0) {
           video.currentTime = Math.max(ranges.end(ranges.length - 1) - 1.5, 0);
         }
-        video.play().catch(() => {});
+        const playAttempt = video.play();
+        if (playAttempt && typeof playAttempt.catch === "function") {
+          playAttempt.catch(() => {});
+        }
+      };
+
+      const setDigits = (group, value) => {
+        const next = String(value);
+        if (group.dataset.value === next) {
+          return;
+        }
+        group.dataset.value = next;
+        group.classList.remove("is-animating");
+        group.replaceChildren();
+        const chars = next.split("");
+        chars.forEach((char, index) => {
+          const span = document.createElement("span");
+          span.className = "t-digit";
+          span.textContent = char;
+          if (index === chars.length - 2) {
+            span.dataset.stagger = "1";
+          } else if (index === chars.length - 1) {
+            span.dataset.stagger = "2";
+          }
+          group.append(span);
+        });
+        void group.offsetHeight;
+        group.classList.add("is-animating");
       };
 
       const connect = (id) => {
@@ -632,8 +938,8 @@
           const playlist = `${snapshot.playlistPath}?v=${snapshot.playlistVersion || 0}`;
           if (snapshot.status === "ready" && playlist !== currentPlaylist) {
             currentPlaylist = playlist;
-            media.setAttribute("src", playlist);
-            syncLive();
+            player.src({ src: playlist, type: "application/x-mpegURL" });
+            player.ready(() => syncLive());
           }
         });
         socket.addEventListener("close", () => {
@@ -683,7 +989,7 @@
       });
 
       copyButton.addEventListener("click", async () => {
-        await navigator.clipboard.writeText(shareInput.value);
+        await navigator.clipboard.writeText(currentShareURL);
         copyButton.textContent = "copied";
         setTimeout(() => {
           copyButton.textContent = "copy link";

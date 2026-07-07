@@ -4,7 +4,7 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -o /thingy .
+RUN CGO_ENABLED=0 go build -o /live2gether .
 
 FROM python:3.13-slim-bookworm
 
@@ -14,9 +14,9 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-ENV DATA_DIR=/tmp/thingy-restream
+ENV DATA_DIR=/tmp/live2gether-restream
 ENV GIN_MODE=release
 
-COPY --from=build /thingy /thingy
+COPY --from=build /live2gether /live2gether
 
-CMD ["/thingy"]
+CMD ["/live2gether"]

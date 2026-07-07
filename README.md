@@ -52,11 +52,15 @@ GIN_MODE=release
 
 the repo includes `Dockerfile.vercel`, which builds the go server and installs `ffmpeg` and `yt-dlp` in the image.
 
+`vercel.json` enables fluid compute and pins the runtime region to `gru1` so youtube requests originate from sao paulo, brazil.
+
 ```bash
 vercel deploy --prod
 ```
 
-vercel container images still run with vercel function constraints. this can work for short rooms, but a long-running restream server is better suited to a dedicated container host such as fly.io, railway, render, or a vps.
+vercel container images still run with function constraints. containers can scale down after idle time, websocket connections can close when a function reaches its maximum duration, and in-memory rooms are not shared across multiple instances.
+
+for a production watch-party service, move room state and chat to redis or another external store. for long-running public restreams, a dedicated container host such as fly.io, railway, render, or a vps is still a better fit.
 
 ## test
 

@@ -8,9 +8,8 @@ test("starts a room, exposes a shareable watch URL, and syncs chat", async ({ pa
   await page.locator("#stream-url").fill(streamURL);
   await page.locator("#stream-form button[type='submit']").click();
 
-  await expect(page.locator("#share-row")).toBeVisible();
-  await expect(page.locator("#host-row")).toBeVisible();
-  await expect(page.locator("#share-url")).toHaveValue(/\/watch\/[A-Za-z0-9_-]+$/);
+  await expect(page.locator("#setup-panel")).toHaveAttribute("data-open", "false");
+  await expect(page.locator("#room-controls")).toHaveAttribute("data-open", "true");
   await expect(page).toHaveURL(/\/watch\/[A-Za-z0-9_-]+$/);
   await expect(page.locator("#host-label")).toHaveText("host");
   await expect(page.locator("#quality-select")).toBeEnabled();
@@ -22,7 +21,10 @@ test("starts a room, exposes a shareable watch URL, and syncs chat", async ({ pa
     })
     .toContain("Stream ready");
 
-  const mediaSrc = await page.locator("#media").getAttribute("src");
+  const mediaSrc = await page.evaluate(() => {
+    const player = window.videojs("media");
+    return player.currentSource()?.src || player.currentSrc();
+  });
   expect(mediaSrc).toMatch(/^\/hls\/[A-Za-z0-9_-]+\/index\.m3u8\?v=\d+$/);
 
   const playlist = await request.get(mediaSrc);
@@ -36,7 +38,7 @@ test("starts a room, exposes a shareable watch URL, and syncs chat", async ({ pa
 
   const viewerContext = await browser.newContext();
   const viewer = await viewerContext.newPage();
-  await viewer.goto(await page.locator("#share-url").inputValue());
+  await viewer.goto(page.url());
   await expect(viewer.locator("#host-label")).toHaveText("viewer");
   await expect(viewer.locator("#quality-select")).toBeDisabled();
 
